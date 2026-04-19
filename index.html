@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Token Usage — Fenrik Monitor</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        :root {
+            --bg: #0a0a0f;
+            --surface: #13131a;
+            --surface-hover: #1a1a25;
+            --border: #1f1f2e;
+            --border-bright: #2a2a3d;
+            --text: #e2e2f0;
+            --text-dim: #6b6b8a;
+            --accent: #6ee7b7;
+            --accent-dim: rgba(110,231,183,0.12);
+            --blue: #93c5fd;
+            --blue-dim: rgba(147,197,253,0.12);
+            --red: #f87171;
+            --radius: 14px;
+            --radius-sm: 8px;
+            --shadow: 0 4px 24px rgba(0,0,0,0.4);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            padding: 2rem 1.5rem;
+            min-height: 100vh;
+            line-height: 1.5;
+        }
+
+        /* ── Header ─────────────────────────── */
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 2.5rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+        .header-left {}
+        .header h1 {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: #fff;
+            letter-spacing: -0.02em;
+        }
+        .subtitle {
+            color: var(--text-dim);
+            font-size: 0.875rem;
+            margin-top: 0.25rem;
+        }
+        .live-badge {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: var(--accent-dim);
+            border: 1px solid rgba(110,231,183,0.2);
+            border-radius: 9999px;
+            padding: 0.35rem 0.85rem;
+            font-size: 0.8rem;
+            color: var(--accent);
+        }
+        .live-dot {
+            width: 8px; height: 8px;
+            background: var(--accent);
+            border-radius: 50%;
+            animation: pulse 2s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.5; transform: scale(0.8); }
+        }
+
+        /* ── Summary Grid ───────────────────── */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        .stat-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1.25rem 1.5rem;
+            transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+            box-shadow: var(--shadow);
+        }
+        .stat-card:hover {
+            border-color: var(--border-bright);
+            background: var(--surface-hover);
+        }
+        .stat-card.primary {
+            background: linear-gradient(135deg, #0f2a1e 0%, var(--surface) 100%);
+            border-color: rgba(110,231,183,0.3);
+        }
+        .stat-label {
+            color: var(--text-dim);
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.07em;
+            margin-bottom: 0.5rem;
+        }
+        .stat-value {
+            font-size: 1.75rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            color: var(--blue);
+            transition: all 0.3s ease;
+        }
+        .stat-card.primary .stat-value { color: var(--accent); }
+
+        /* Number fade animation */
+        .stat-value.updating {
+            opacity: 0.4;
+            transform: translateY(-2px);
+            transition: all 0.15s ease;
+        }
+
+        /* ── Cards ──────────────────────────── */
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: var(--shadow);
+        }
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.25rem;
+        }
+        .card-title {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+
+        /* ── Table ──────────────────────────── */
+        table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+        }
+        thead th {
+            text-align: left;
+            color: var(--text-dim);
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            padding: 0.6rem 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+        tbody tr {
+            transition: background 0.15s;
+            cursor: default;
+        }
+        tbody tr:hover td { background: var(--surface-hover); }
+        tbody td {
+            padding: 0.85rem 1rem;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.9rem;
+            vertical-align: middle;
+        }
+        tbody tr:last-child td { border-bottom: none; }
+
+        .model-name {
+            color: var(--blue);
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+        .token-num { color: var(--text); font-variant-numeric: tabular-nums; }
+        .cost-col { color: var(--accent); font-weight: 600; font-variant-numeric: tabular-nums; }
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            background: var(--blue-dim);
+            color: var(--blue);
+            border-radius: 9999px;
+            padding: 0.2rem 0.65rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        /* ── Chart ──────────────────────────── */
+        #chart-card canvas { max-height: 260px; }
+
+        /* ── Button ──────────────────────────── */
+        #refresh-btn {
+            background: var(--blue-dim);
+            color: var(--blue);
+            border: 1px solid rgba(147,197,253,0.2);
+            border-radius: var(--radius-sm);
+            padding: 0.5rem 1.1rem;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 500;
+            font-family: inherit;
+            transition: background 0.2s, border-color 0.2s, transform 0.1s;
+        }
+        #refresh-btn:hover {
+            background: rgba(147,197,253,0.2);
+            border-color: rgba(147,197,253,0.4);
+            transform: scale(1.02);
+        }
+        #refresh-btn:active { transform: scale(0.98); }
+        #refresh-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+        /* ── States ─────────────────────────── */
+        .error {
+            color: var(--red);
+            background: rgba(248,113,113,0.08);
+            border: 1px solid rgba(248,113,113,0.2);
+            border-radius: var(--radius-sm);
+            padding: 0.75rem 1rem;
+            margin-top: 1rem;
+            font-size: 0.875rem;
+            display: none;
+        }
+        .loading {
+            color: var(--text-dim);
+            font-style: italic;
+            font-size: 0.875rem;
+            text-align: center;
+            padding: 1rem;
+        }
+
+        /* ── Responsive ─────────────────────── */
+        @media (max-width: 640px) {
+            body { padding: 1rem; }
+            .stat-value { font-size: 1.4rem; }
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .card { padding: 1rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="header-left">
+            <h1>🐺 Token Monitor</h1>
+            <p class="subtitle">OpenClaw usage · fetched <span id="fetch-time">—</span></p>
+        </div>
+        <div class="live-badge">
+            <div class="live-dot"></div>
+            <span>Live</span>
+        </div>
+    </div>
+
+    <div class="stats-grid">
+        <div class="stat-card primary">
+            <div class="stat-label">Total API Cost</div>
+            <div class="stat-value" id="total-cost">—</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Total Sessions</div>
+            <div class="stat-value" id="total-sessions">—</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Models Active</div>
+            <div class="stat-value" id="total-models">—</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Total Input Tokens</div>
+            <div class="stat-value" id="total-input">—</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-label">Total Output Tokens</div>
+            <div class="stat-value" id="total-output">—</div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <span class="card-title">Per-Model Breakdown</span>
+            <button id="refresh-btn">↻ Refresh</button>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Model</th>
+                    <th>Input Tokens</th>
+                    <th>Output Tokens</th>
+                    <th>Cost (USD)</th>
+                    <th>Sessions</th>
+                </tr>
+            </thead>
+            <tbody id="model-table-body">
+                <tr><td colspan="5" class="loading">Loading…</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="card" id="chart-card">
+        <div class="card-header">
+            <span class="card-title">Token Volume — Last 7 Days</span>
+        </div>
+        <canvas id="timeline-chart"></canvas>
+    </div>
+
+    <div id="error-msg" class="error"></div>
+
+    <script>
+        let chartInstance = null;
+
+        // Fade-out + fade-in transition for stat value updates
+        function animateStatValue(el, newValue) {
+            el.classList.add('updating');
+            setTimeout(() => {
+                el.textContent = newValue;
+                el.classList.remove('updating');
+            }, 150);
+        }
+
+        const chartOpts = {
+            responsive: true,
+            animation: { duration: 400, easing: 'easeInOutQuart' },
+            plugins: {
+                legend: {
+                    labels: {
+                        color: '#6b6b8a',
+                        font: { family: 'Inter', size: 12 },
+                        boxWidth: 12,
+                        boxHeight: 12,
+                        borderRadius: 3,
+                        useBorderRadius: true,
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    ticks: { color: '#6b6b8a', font: { family: 'Inter', size: 11 } },
+                    grid: { color: '#1f1f2e' },
+                    border: { color: '#1f1f2e' }
+                },
+                y: {
+                    ticks: { color: '#6b6b8a', font: { family: 'Inter', size: 11 } },
+                    grid: { color: '#1f1f2e' },
+                    border: { color: 'transparent' }
+                }
+            }
+        };
+
+        async function renderTimeline(chartData) {
+            const labels = chartData.map(d => d.date.slice(5));
+            const inputTokens = chartData.map(d => d.inputTokens ?? 0);
+            const outputTokens = chartData.map(d => d.outputTokens ?? 0);
+
+            if (chartInstance) {
+                chartInstance.data.labels = labels;
+                chartInstance.data.datasets[0].data = inputTokens;
+                chartInstance.data.datasets[1].data = outputTokens;
+                chartInstance.update();
+            } else {
+                const ctx = document.getElementById('timeline-chart').getContext('2d');
+                chartInstance = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels,
+                        datasets: [
+                            {
+                                label: 'Input Tokens',
+                                data: inputTokens,
+                                backgroundColor: 'rgba(147,197,253,0.6)',
+                                borderColor: '#93c5fd',
+                                borderWidth: 1,
+                                borderRadius: 4,
+                            },
+                            {
+                                label: 'Output Tokens',
+                                data: outputTokens,
+                                backgroundColor: 'rgba(110,231,183,0.5)',
+                                borderColor: '#6ee7b7',
+                                borderWidth: 1,
+                                borderRadius: 4,
+                            }
+                        ]
+                    },
+                    options: chartOpts
+                });
+            }
+        }
+
+        async function fetchUsage() {
+            const btn = document.getElementById('refresh-btn');
+            const errEl = document.getElementById('error-msg');
+            btn.disabled = true;
+            errEl.style.display = 'none';
+
+            try {
+                const [usageResp, timelineResp] = await Promise.all([
+                    fetch('/api/usage'),
+                    fetch('/api/timeline'),
+                ]);
+
+                if (!usageResp.ok) throw new Error('HTTP ' + usageResp.status);
+                const usageData = await usageResp.json();
+
+                if (timelineResp.ok) {
+                    const timelineData = await timelineResp.json();
+                    if (timelineData.timeline && timelineData.timeline.length) {
+                        await renderTimeline(timelineData.timeline);
+                    }
+                }
+
+                // Animate stat updates
+                const totalSessions = usageData.totalSessions ?? '—';
+                animateStatValue(document.getElementById('total-sessions'), totalSessions);
+
+                const numModels = Object.keys(usageData.models ?? {}).length;
+                animateStatValue(document.getElementById('total-models'), numModels);
+
+                const totalCost = usageData.totalCost ?? 0;
+                const costStr = totalCost === 0 ? '—' : '$' + totalCost.toFixed(4);
+                animateStatValue(document.getElementById('total-cost'), costStr);
+
+                let totalIn = 0, totalOut = 0;
+                const tbody = document.getElementById('model-table-body');
+                tbody.innerHTML = '';
+
+                const models = Object.entries(usageData.models ?? {});
+                if (models.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="loading">No data yet</td></tr>';
+                } else {
+                    for (const [model, stats] of models) {
+                        totalIn += stats.inputTokens ?? 0;
+                        totalOut += stats.outputTokens ?? 0;
+                        const costVal = stats.cost ?? 0;
+                        const row = document.createElement('tr');
+                        row.innerHTML = [
+                            `<td class="model-name">${escapeHtml(model)}</td>`,
+                            `<td class="token-num">${(stats.inputTokens ?? 0).toLocaleString()}</td>`,
+                            `<td class="token-num">${(stats.outputTokens ?? 0).toLocaleString()}</td>`,
+                            `<td class="cost-col">${costVal === 0 ? '—' : '$' + costVal.toFixed(4)}</td>`,
+                            `<td><span class="badge">${stats.sessions ?? 0}</span></td>`,
+                        ].join('');
+                        tbody.appendChild(row);
+                    }
+                }
+
+                animateStatValue(document.getElementById('total-input'), totalIn.toLocaleString());
+                animateStatValue(document.getElementById('total-output'), totalOut.toLocaleString());
+
+                const fetchedAt = usageData.fetchedAt
+                    ? new Date(usageData.fetchedAt).toLocaleTimeString()
+                    : '—';
+                document.getElementById('fetch-time').textContent = fetchedAt;
+
+            } catch (e) {
+                errEl.textContent = 'Failed to load: ' + e.message;
+                errEl.style.display = 'block';
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        document.getElementById('refresh-btn').addEventListener('click', fetchUsage);
+        fetchUsage();
+        setInterval(fetchUsage, 8000);
+    </script>
+</body>
+</html>
