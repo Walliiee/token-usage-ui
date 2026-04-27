@@ -316,6 +316,11 @@
 
     <script>
         let chartInstance = null;
+        let refreshTimer = null;
+
+        function cssVar(name) {
+            return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+        }
 
         // Fade-out + fade-in transition for stat value updates
         function animateStatValue(el, newValue) {
@@ -326,34 +331,38 @@
             }, 150);
         }
 
-        const chartOpts = {
-            responsive: true,
-            animation: { duration: 400, easing: 'easeInOutQuart' },
-            plugins: {
-                legend: {
-                    labels: {
-                        color: '#6b6b8a',
-                        font: { family: 'Inter', size: 12 },
-                        boxWidth: 12,
-                        boxHeight: 12,
-                        borderRadius: 3,
-                        useBorderRadius: true,
+        function buildChartOpts() {
+            const dimColor  = cssVar('--text-dim');
+            const gridColor = cssVar('--border');
+            return {
+                responsive: true,
+                animation: { duration: 400, easing: 'easeInOutQuart' },
+                plugins: {
+                    legend: {
+                        labels: {
+                            color: dimColor,
+                            font: { family: 'Inter', size: 12 },
+                            boxWidth: 12,
+                            boxHeight: 12,
+                            borderRadius: 3,
+                            useBorderRadius: true,
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: { color: dimColor, font: { family: 'Inter', size: 11 } },
+                        grid: { color: gridColor },
+                        border: { color: gridColor }
+                    },
+                    y: {
+                        ticks: { color: dimColor, font: { family: 'Inter', size: 11 } },
+                        grid: { color: gridColor },
+                        border: { color: 'transparent' }
                     }
                 }
-            },
-            scales: {
-                x: {
-                    ticks: { color: '#6b6b8a', font: { family: 'Inter', size: 11 } },
-                    grid: { color: '#1f1f2e' },
-                    border: { color: '#1f1f2e' }
-                },
-                y: {
-                    ticks: { color: '#6b6b8a', font: { family: 'Inter', size: 11 } },
-                    grid: { color: '#1f1f2e' },
-                    border: { color: 'transparent' }
-                }
-            }
-        };
+            };
+        }
 
         async function renderTimeline(chartData) {
             const labels = chartData.map(d => d.date.slice(5));
@@ -376,7 +385,7 @@
                                 label: 'Input Tokens',
                                 data: inputTokens,
                                 backgroundColor: 'rgba(147,197,253,0.6)',
-                                borderColor: '#93c5fd',
+                                borderColor: cssVar('--blue'),
                                 borderWidth: 1,
                                 borderRadius: 4,
                             },
@@ -384,13 +393,13 @@
                                 label: 'Output Tokens',
                                 data: outputTokens,
                                 backgroundColor: 'rgba(110,231,183,0.5)',
-                                borderColor: '#6ee7b7',
+                                borderColor: cssVar('--accent'),
                                 borderWidth: 1,
                                 borderRadius: 4,
                             }
                         ]
                     },
-                    options: chartOpts
+                    options: buildChartOpts()
                 });
             }
         }
@@ -474,9 +483,21 @@
             return div.innerHTML;
         }
 
+        function startPolling() {
+            if (!refreshTimer) refreshTimer = setInterval(fetchUsage, 8000);
+        }
+        function stopPolling() {
+            clearInterval(refreshTimer);
+            refreshTimer = null;
+        }
+
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) stopPolling(); else { fetchUsage(); startPolling(); }
+        });
+
         document.getElementById('refresh-btn').addEventListener('click', fetchUsage);
         fetchUsage();
-        setInterval(fetchUsage, 8000);
+        startPolling();
     </script>
 </body>
 </html>

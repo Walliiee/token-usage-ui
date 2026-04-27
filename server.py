@@ -4,7 +4,6 @@ import http.server
 import json
 import os
 import socketserver
-import glob
 from pathlib import Path
 from datetime import datetime
 
@@ -12,32 +11,33 @@ PORT = 8765
 DIRECTORY = os.path.dirname(os.path.abspath(__file__))
 OPENCLAW_DIR = Path.home() / ".openclaw"
 
-# Pricing: cost per 1M tokens (input, output)
-MODEL_PRICING = {
-    # Anthropic
-    "claude-sonnet-4-6": (3.0, 15.0),
-    "claude-sonnet-4-20250514": (3.0, 15.0),
-    "claude-3-5-sonnet": (3.0, 15.0),
-    "claude-3-5-haiku": (0.8, 4.0),
-    "claude-haiku-3-5": (0.8, 4.0),
-    "claude-3-haiku": (0.25, 1.25),
-    "claude-opus-4": (15.0, 75.0),
-    "claude-3-opus": (15.0, 75.0),
-    # Ollama / local models — free
-    "glm-5.1:cloud": (0.0, 0.0),
-    "glm-5:cloud": (0.0, 0.0),
-    "kimi-k2.5:cloud": (0.0, 0.0),
-    "minimax-m2.7:cloud": (0.0, 0.0),
-    "qwen3.6:cloud": (0.0, 0.0),
-}
+# Pricing: cost per 1M tokens (input, output).
+# Listed longest-prefix-first so the first match wins correctly.
+MODEL_PRICING = [
+    # Anthropic — specific model IDs first, then family prefixes
+    ("claude-sonnet-4-6",        (3.0,  15.0)),
+    ("claude-sonnet-4-20250514", (3.0,  15.0)),
+    ("claude-3-5-sonnet",        (3.0,  15.0)),
+    ("claude-haiku-4-5",         (0.8,   4.0)),
+    ("claude-3-5-haiku",         (0.8,   4.0)),
+    ("claude-haiku-3-5",         (0.8,   4.0)),
+    ("claude-3-haiku",           (0.25,  1.25)),
+    ("claude-opus-4-7",          (15.0, 75.0)),
+    ("claude-opus-4",            (15.0, 75.0)),
+    ("claude-3-opus",            (15.0, 75.0)),
+    # Local / cloud models — free
+    ("glm-5.1:cloud",            (0.0,   0.0)),
+    ("glm-5:cloud",              (0.0,   0.0)),
+    ("kimi-k2.5:cloud",          (0.0,   0.0)),
+    ("minimax-m2.7:cloud",       (0.0,   0.0)),
+    ("qwen3.6:cloud",            (0.0,   0.0)),
+]
 
 def get_pricing(model):
-    """Return (input_per_1M, output_per_1M) for a model, with prefix matching."""
-    if model in MODEL_PRICING:
-        return MODEL_PRICING[model]
-    for key, val in MODEL_PRICING.items():
-        if model.startswith(key):
-            return val
+    """Return (input_per_1M, output_per_1M) for a model, with longest-prefix matching."""
+    for prefix, price in MODEL_PRICING:
+        if model == prefix or model.startswith(prefix):
+            return price
     return (0.0, 0.0)
 
 def calc_cost(inp, out, model):
@@ -45,42 +45,36 @@ def calc_cost(inp, out, model):
     p_in, p_out = get_pricing(model)
     return round((inp / 1_000_000) * p_in + (out / 1_000_000) * p_out, 4)
 
+def load_sessions():
+    """Load session records from sessions.json; returns a list of dicts."""
+    sessions_file = OPENCLAW_DIR / "agents" / "main" / "sessions" / "sessions.json"
+    if not sessions_file.exists():
+        return []
+    try:
+        data = json.loads(sessions_file.read_text())
+        if isinstance(data, list):
+            return [s for s in data if isinstance(s, dict)]
+        if isinstance(data, dict):
+            return [s for s in data.values() if isinstance(s, dict)]
+    except (json.JSONDecodeError, OSError):
+        pass
+    return []
+
 def get_usage_data():
     """Fetch real session data from OpenClaw sessions."""
-    sessions_file = OPENCLAW_DIR / "agents" / "main" / "sessions" / "sessions.json"
+    sessions = load_sessions()
     models = {}
-    total_sessions = 0
+    total_sessions = len(sessions)
 
-    # Try real sessions.json first
-    if sessions_file.exists():
-        try:
-            data = json.loads(sessions_file.read_text())
-            if isinstance(data, list):
-                total_sessions = len(data)
-                for s in data:
-                    model = s.get("model", "unknown")
-                    inp = s.get("inputTokens", 0) or 0
-                    out = s.get("outputTokens", 0) or 0
-                    if model not in models:
-                        models[model] = {"inputTokens": 0, "outputTokens": 0, "sessions": 0}
-                    models[model]["inputTokens"] += inp
-                    models[model]["outputTokens"] += out
-                    models[model]["sessions"] += 1
-            elif isinstance(data, dict):
-                total_sessions = len(data)
-                for _key, s in data.items():
-                    if not isinstance(s, dict):
-                        continue
-                    model = s.get("model", "unknown")
-                    inp = s.get("inputTokens", 0) or 0
-                    out = s.get("outputTokens", 0) or 0
-                    if model not in models:
-                        models[model] = {"inputTokens": 0, "outputTokens": 0, "sessions": 0}
-                    models[model]["inputTokens"] += inp
-                    models[model]["outputTokens"] += out
-                    models[model]["sessions"] += 1
-        except (json.JSONDecodeError, OSError):
-            pass
+    for s in sessions:
+        model = s.get("model", "unknown")
+        inp = s.get("inputTokens", 0) or 0
+        out = s.get("outputTokens", 0) or 0
+        if model not in models:
+            models[model] = {"inputTokens": 0, "outputTokens": 0, "sessions": 0}
+        models[model]["inputTokens"] += inp
+        models[model]["outputTokens"] += out
+        models[model]["sessions"] += 1
 
     # If no real data, return mock so frontend can wire up
     if not models:
@@ -99,33 +93,24 @@ def get_usage_data():
 
 def get_timeline_data():
     """Return daily token usage time-series from sessions.json."""
-    sessions_file = OPENCLAW_DIR / "agents" / "main" / "sessions" / "sessions.json"
     from collections import defaultdict
+    import datetime as _dt
     by_date = defaultdict(lambda: {"inputTokens": 0, "outputTokens": 0, "sessions": 0, "models": defaultdict(lambda: {"inputTokens": 0, "outputTokens": 0, "sessions": 0})})
 
-    if sessions_file.exists():
-        try:
-            data = json.loads(sessions_file.read_text())
-            items = data.values() if isinstance(data, dict) else data
-            for s in items:
-                if not isinstance(s, dict):
-                    continue
-                ts = s.get("startedAt")
-                if not ts:
-                    continue
-                dt = datetime.fromtimestamp(ts / 1000, tz=__import__("datetime").timezone.utc)
-                date_str = dt.strftime("%Y-%m-%d")
-                model = s.get("model", "unknown")
-                inp = s.get("inputTokens") or 0
-                out = s.get("outputTokens") or 0
-                by_date[date_str]["inputTokens"] += inp
-                by_date[date_str]["outputTokens"] += out
-                by_date[date_str]["sessions"] += 1
-                by_date[date_str]["models"][model]["inputTokens"] += inp
-                by_date[date_str]["models"][model]["outputTokens"] += out
-                by_date[date_str]["models"][model]["sessions"] += 1
-        except (json.JSONDecodeError, OSError):
-            pass
+    for s in load_sessions():
+        ts = s.get("startedAt")
+        if not ts:
+            continue
+        date_str = _dt.datetime.fromtimestamp(ts / 1000, tz=_dt.timezone.utc).strftime("%Y-%m-%d")
+        model = s.get("model", "unknown")
+        inp = s.get("inputTokens") or 0
+        out = s.get("outputTokens") or 0
+        by_date[date_str]["inputTokens"] += inp
+        by_date[date_str]["outputTokens"] += out
+        by_date[date_str]["sessions"] += 1
+        by_date[date_str]["models"][model]["inputTokens"] += inp
+        by_date[date_str]["models"][model]["outputTokens"] += out
+        by_date[date_str]["models"][model]["sessions"] += 1
 
     # Build sorted array
     timeline = []
@@ -172,13 +157,17 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self.send_header("Access-Control-Allow-Origin", "*")
             self.end_headers()
             self.wfile.write(json.dumps(data, indent=2).encode())
-        else:
+        elif self.path in ("/", "/index.html"):
             super().do_GET()
+        else:
+            self.send_response(404)
+            self.end_headers()
 
     def log_message(self, format, *args):
-        print(f"[{self.log_date_time_string()}] {args[0]}")
+        print(f"[{self.log_date_time_string()}] {format % args}")
 
 if __name__ == "__main__":
+    socketserver.TCPServer.allow_reuse_address = True
     with socketserver.TCPServer(("", PORT), Handler) as httpd:
         print(f"Serving at http://localhost:{PORT}")
         httpd.serve_forever()
