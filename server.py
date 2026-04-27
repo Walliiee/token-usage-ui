@@ -9,7 +9,7 @@ from datetime import datetime
 
 PORT = 8765
 DIRECTORY = os.path.dirname(os.path.abspath(__file__))
-OPENCLAW_DIR = Path.home() / ".openclaw"
+OPENCLAW_DIR = Path(os.environ.get("OPENCLAW_DIR", Path.home() / ".openclaw"))
 
 # Pricing: cost per 1M tokens (input, output).
 # Listed longest-prefix-first so the first match wins correctly.
@@ -158,7 +158,19 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(json.dumps(data, indent=2).encode())
         elif self.path in ("/", "/index.html"):
-            super().do_GET()
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Security-Policy",
+                "default-src 'self'; "
+                "script-src cdn.jsdelivr.net; "
+                "style-src fonts.googleapis.com 'unsafe-inline'; "
+                "font-src fonts.gstatic.com"
+            )
+            index = Path(DIRECTORY) / "index.html"
+            body = index.read_bytes()
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
         else:
             self.send_response(404)
             self.end_headers()
