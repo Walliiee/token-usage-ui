@@ -22,6 +22,12 @@ Then open **http://localhost:8765** in your browser.
 
 Reads session data from `~/.openclaw/agents/main/sessions/sessions.json`. If no real data is found, mock data is used as a fallback.
 
+Override the base directory with an environment variable if your install is non-default:
+
+```bash
+OPENCLAW_DIR=/custom/path python server.py
+```
+
 ## Tech
 
 - Python stdlib HTTP server (no dependencies)
