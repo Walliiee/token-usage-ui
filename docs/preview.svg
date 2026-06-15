@@ -1,0 +1,124 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="716" viewBox="0 0 1000 716" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif">
+  <defs>
+    <linearGradient id="primaryGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0f2a1e"/>
+      <stop offset="1" stop-color="#13131a"/>
+    </linearGradient>
+  </defs>
+
+  <!-- background -->
+  <rect width="1000" height="716" fill="#0a0a0f"/>
+
+  <!-- ── Header ────────────────────────────── -->
+  <text x="32" y="56" fill="#ffffff" font-size="26" font-weight="700" letter-spacing="-0.5">Token Usage UI</text>
+  <text x="32" y="80" fill="#6b6b8a" font-size="14">OpenClaw usage · fetched 17:52:09</text>
+
+  <rect x="872" y="42" width="96" height="28" rx="14" fill="#6ee7b7" fill-opacity="0.12" stroke="#6ee7b7" stroke-opacity="0.2"/>
+  <circle cx="891" cy="56" r="4" fill="#6ee7b7"/>
+  <text x="903" y="60" fill="#6ee7b7" font-size="13">Live</text>
+
+  <!-- ── Summary cards ─────────────────────── -->
+  <!-- card 1 (primary) -->
+  <rect x="32" y="110" width="174" height="96" rx="14" fill="url(#primaryGrad)" stroke="#6ee7b7" stroke-opacity="0.3"/>
+  <text x="50" y="140" fill="#6b6b8a" font-size="11" font-weight="600" letter-spacing="0.7">TOTAL API COST</text>
+  <text x="50" y="178" fill="#6ee7b7" font-size="26" font-weight="700">—</text>
+  <!-- card 2 -->
+  <rect x="222" y="110" width="174" height="96" rx="14" fill="#13131a" stroke="#1f1f2e"/>
+  <text x="240" y="140" fill="#6b6b8a" font-size="11" font-weight="600" letter-spacing="0.7">TOTAL SESSIONS</text>
+  <text x="240" y="178" fill="#93c5fd" font-size="26" font-weight="700">10</text>
+  <!-- card 3 -->
+  <rect x="412" y="110" width="174" height="96" rx="14" fill="#13131a" stroke="#1f1f2e"/>
+  <text x="430" y="140" fill="#6b6b8a" font-size="11" font-weight="600" letter-spacing="0.7">MODELS ACTIVE</text>
+  <text x="430" y="178" fill="#93c5fd" font-size="26" font-weight="700">3</text>
+  <!-- card 4 -->
+  <rect x="602" y="110" width="174" height="96" rx="14" fill="#13131a" stroke="#1f1f2e"/>
+  <text x="620" y="140" fill="#6b6b8a" font-size="11" font-weight="600" letter-spacing="0.7">TOTAL INPUT TOKENS</text>
+  <text x="620" y="178" fill="#93c5fd" font-size="26" font-weight="700">27,500</text>
+  <!-- card 5 -->
+  <rect x="792" y="110" width="176" height="96" rx="14" fill="#13131a" stroke="#1f1f2e"/>
+  <text x="810" y="140" fill="#6b6b8a" font-size="11" font-weight="600" letter-spacing="0.7">TOTAL OUTPUT TOKENS</text>
+  <text x="810" y="178" fill="#93c5fd" font-size="26" font-weight="700">11,950</text>
+
+  <!-- ── Per-model breakdown ───────────────── -->
+  <rect x="32" y="230" width="936" height="196" rx="14" fill="#13131a" stroke="#1f1f2e"/>
+  <text x="56" y="266" fill="#6b6b8a" font-size="13" font-weight="600" letter-spacing="0.6">PER-MODEL BREAKDOWN</text>
+  <rect x="836" y="250" width="108" height="30" rx="8" fill="#93c5fd" fill-opacity="0.12" stroke="#93c5fd" stroke-opacity="0.2"/>
+  <text x="857" y="270" fill="#93c5fd" font-size="13">↻ Refresh</text>
+
+  <!-- table header -->
+  <text x="56"  y="308" fill="#6b6b8a" font-size="11" font-weight="600" letter-spacing="0.6">MODEL</text>
+  <text x="380" y="308" fill="#6b6b8a" font-size="11" font-weight="600" letter-spacing="0.6">INPUT TOKENS</text>
+  <text x="540" y="308" fill="#6b6b8a" font-size="11" font-weight="600" letter-spacing="0.6">OUTPUT TOKENS</text>
+  <text x="700" y="308" fill="#6b6b8a" font-size="11" font-weight="600" letter-spacing="0.6">COST (USD)</text>
+  <text x="840" y="308" fill="#6b6b8a" font-size="11" font-weight="600" letter-spacing="0.6">SESSIONS</text>
+  <line x1="56" y1="318" x2="944" y2="318" stroke="#1f1f2e"/>
+
+  <!-- row 1 -->
+  <text x="56"  y="348" fill="#93c5fd" font-size="14">glm-5.1:cloud</text>
+  <text x="380" y="348" fill="#e2e2f0" font-size="14">8,200</text>
+  <text x="540" y="348" fill="#e2e2f0" font-size="14">3,850</text>
+  <text x="700" y="348" fill="#6ee7b7" font-size="14" font-weight="600">—</text>
+  <rect x="840" y="334" width="34" height="22" rx="11" fill="#93c5fd" fill-opacity="0.12"/>
+  <text x="857" y="349" fill="#93c5fd" font-size="12" font-weight="600" text-anchor="middle">5</text>
+  <line x1="56" y1="362" x2="944" y2="362" stroke="#1f1f2e"/>
+
+  <!-- row 2 -->
+  <text x="56"  y="392" fill="#93c5fd" font-size="14">kimi-k2.5:cloud</text>
+  <text x="380" y="392" fill="#e2e2f0" font-size="14">15,000</text>
+  <text x="540" y="392" fill="#e2e2f0" font-size="14">6,200</text>
+  <text x="700" y="392" fill="#6ee7b7" font-size="14" font-weight="600">—</text>
+  <rect x="840" y="378" width="34" height="22" rx="11" fill="#93c5fd" fill-opacity="0.12"/>
+  <text x="857" y="393" fill="#93c5fd" font-size="12" font-weight="600" text-anchor="middle">3</text>
+  <line x1="56" y1="406" x2="944" y2="406" stroke="#1f1f2e"/>
+
+  <!-- row 3 -->
+  <text x="56"  y="436" fill="#93c5fd" font-size="14">minimax-m2.7:cloud</text>
+  <text x="380" y="436" fill="#e2e2f0" font-size="14">4,300</text>
+  <text x="540" y="436" fill="#e2e2f0" font-size="14">1,900</text>
+  <text x="700" y="436" fill="#6ee7b7" font-size="14" font-weight="600">—</text>
+  <rect x="840" y="422" width="34" height="22" rx="11" fill="#93c5fd" fill-opacity="0.12"/>
+  <text x="857" y="437" fill="#93c5fd" font-size="12" font-weight="600" text-anchor="middle">2</text>
+
+  <!-- ── Timeline chart ────────────────────── -->
+  <rect x="32" y="470" width="936" height="222" rx="14" fill="#13131a" stroke="#1f1f2e"/>
+  <text x="56" y="504" fill="#6b6b8a" font-size="13" font-weight="600" letter-spacing="0.6">TOKEN VOLUME — LAST 7 DAYS</text>
+
+  <!-- legend -->
+  <rect x="690" y="494" width="12" height="12" rx="3" fill="#93c5fd" fill-opacity="0.6"/>
+  <text x="708" y="504" fill="#6b6b8a" font-size="12">Input Tokens</text>
+  <rect x="800" y="494" width="12" height="12" rx="3" fill="#6ee7b7" fill-opacity="0.55"/>
+  <text x="818" y="504" fill="#6b6b8a" font-size="12">Output Tokens</text>
+
+  <!-- baseline -->
+  <line x1="70" y1="650" x2="944" y2="650" stroke="#1f1f2e"/>
+
+  <!-- bars: input (blue) + output (green) per day -->
+  <!-- day 1 -->
+  <rect x="108" y="524" width="22" height="126" rx="3" fill="#93c5fd" fill-opacity="0.6" stroke="#93c5fd"/>
+  <rect x="134" y="637" width="22" height="13"  rx="3" fill="#6ee7b7" fill-opacity="0.5" stroke="#6ee7b7"/>
+  <text x="132" y="668" fill="#6b6b8a" font-size="11" text-anchor="middle">06-09</text>
+  <!-- day 2 -->
+  <rect x="233" y="542" width="22" height="108" rx="3" fill="#93c5fd" fill-opacity="0.6" stroke="#93c5fd"/>
+  <rect x="259" y="639" width="22" height="11"  rx="3" fill="#6ee7b7" fill-opacity="0.5" stroke="#6ee7b7"/>
+  <text x="257" y="668" fill="#6b6b8a" font-size="11" text-anchor="middle">06-10</text>
+  <!-- day 3 -->
+  <rect x="358" y="560" width="22" height="90"  rx="3" fill="#93c5fd" fill-opacity="0.6" stroke="#93c5fd"/>
+  <rect x="384" y="641" width="22" height="9"   rx="3" fill="#6ee7b7" fill-opacity="0.5" stroke="#6ee7b7"/>
+  <text x="382" y="668" fill="#6b6b8a" font-size="11" text-anchor="middle">06-11</text>
+  <!-- day 4 -->
+  <rect x="483" y="578" width="22" height="72"  rx="3" fill="#93c5fd" fill-opacity="0.6" stroke="#93c5fd"/>
+  <rect x="509" y="643" width="22" height="7"   rx="3" fill="#6ee7b7" fill-opacity="0.5" stroke="#6ee7b7"/>
+  <text x="507" y="668" fill="#6b6b8a" font-size="11" text-anchor="middle">06-12</text>
+  <!-- day 5 -->
+  <rect x="608" y="596" width="22" height="54"  rx="3" fill="#93c5fd" fill-opacity="0.6" stroke="#93c5fd"/>
+  <rect x="634" y="645" width="22" height="5"   rx="3" fill="#6ee7b7" fill-opacity="0.5" stroke="#6ee7b7"/>
+  <text x="632" y="668" fill="#6b6b8a" font-size="11" text-anchor="middle">06-13</text>
+  <!-- day 6 -->
+  <rect x="733" y="614" width="22" height="36"  rx="3" fill="#93c5fd" fill-opacity="0.6" stroke="#93c5fd"/>
+  <rect x="759" y="646" width="22" height="4"   rx="3" fill="#6ee7b7" fill-opacity="0.5" stroke="#6ee7b7"/>
+  <text x="757" y="668" fill="#6b6b8a" font-size="11" text-anchor="middle">06-14</text>
+  <!-- day 7 -->
+  <rect x="858" y="632" width="22" height="18"  rx="3" fill="#93c5fd" fill-opacity="0.6" stroke="#93c5fd"/>
+  <rect x="884" y="648" width="22" height="2"   rx="3" fill="#6ee7b7" fill-opacity="0.5" stroke="#6ee7b7"/>
+  <text x="882" y="668" fill="#6b6b8a" font-size="11" text-anchor="middle">06-15</text>
+</svg>

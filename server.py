@@ -1,13 +1,27 @@
 #!/usr/bin/env python3
-"""HTTP server for Token Usage UI with /api/usage endpoint."""
+"""HTTP server for the Token Usage UI.
+
+Serves the dashboard (index.html) plus two JSON endpoints:
+
+  GET /api/usage     aggregated per-model token usage and estimated cost
+  GET /api/timeline  daily token usage time-series (last entries)
+
+Session data is read from ``$OPENCLAW_DIR/agents/main/sessions/sessions.json``.
+If no real data is found, representative mock data is returned so the UI can
+still be demoed.
+"""
 import http.server
 import json
 import os
 import socketserver
+from collections import defaultdict
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from datetime import datetime
 
-PORT = 8765
+try:
+    PORT = int(os.environ.get("PORT", "8765"))
+except ValueError:
+    PORT = 8765
 DIRECTORY = os.path.dirname(os.path.abspath(__file__))
 OPENCLAW_DIR = Path(os.environ.get("OPENCLAW_DIR", Path.home() / ".openclaw"))
 
@@ -33,6 +47,12 @@ MODEL_PRICING = [
     ("qwen3.6:cloud",            (0.0,   0.0)),
 ]
 
+
+def now_iso():
+    """Return the current UTC time as an ISO-8601 string with a 'Z' suffix."""
+    return datetime.now(timezone.utc).replace(tzinfo=None).isoformat() + "Z"
+
+
 def get_pricing(model):
     """Return (input_per_1M, output_per_1M) for a model, with longest-prefix matching."""
     for prefix, price in MODEL_PRICING:
@@ -40,10 +60,12 @@ def get_pricing(model):
             return price
     return (0.0, 0.0)
 
+
 def calc_cost(inp, out, model):
     """Calculate estimated cost in USD for given tokens and model."""
     p_in, p_out = get_pricing(model)
     return round((inp / 1_000_000) * p_in + (out / 1_000_000) * p_out, 4)
+
 
 def load_sessions():
     """Load session records from sessions.json; returns a list of dicts."""
@@ -60,23 +82,39 @@ def load_sessions():
         pass
     return []
 
+
+def read_record(s):
+    """Extract (model, input_tokens, output_tokens) from a raw session record.
+
+    Coerces missing or malformed fields to safe defaults so a single bad
+    record in sessions.json can't crash aggregation.
+    """
+    model = s.get("model")
+    if not isinstance(model, str):
+        model = "unknown"
+    inp = s.get("inputTokens")
+    out = s.get("outputTokens")
+    inp = inp if isinstance(inp, (int, float)) and not isinstance(inp, bool) else 0
+    out = out if isinstance(out, (int, float)) and not isinstance(out, bool) else 0
+    return model, inp, out
+
+
 def get_usage_data():
-    """Fetch real session data from OpenClaw sessions."""
+    """Aggregate per-model token usage and cost across all sessions."""
     sessions = load_sessions()
     models = {}
     total_sessions = len(sessions)
 
     for s in sessions:
-        model = s.get("model", "unknown")
-        inp = s.get("inputTokens", 0) or 0
-        out = s.get("outputTokens", 0) or 0
-        if model not in models:
-            models[model] = {"inputTokens": 0, "outputTokens": 0, "sessions": 0}
-        models[model]["inputTokens"] += inp
-        models[model]["outputTokens"] += out
-        models[model]["sessions"] += 1
+        model, inp, out = read_record(s)
+        entry = models.setdefault(
+            model, {"inputTokens": 0, "outputTokens": 0, "sessions": 0}
+        )
+        entry["inputTokens"] += inp
+        entry["outputTokens"] += out
+        entry["sessions"] += 1
 
-    # If no real data, return mock so frontend can wire up
+    # If no real data, return mock so the frontend can be demoed.
     if not models:
         models = {
             "glm-5.1:cloud": {"inputTokens": 8200, "outputTokens": 3850, "sessions": 5},
@@ -85,89 +123,102 @@ def get_usage_data():
         }
         total_sessions = 10
 
-    # Add cost per model
     for model, d in models.items():
         d["cost"] = calc_cost(d["inputTokens"], d["outputTokens"], model)
     total_cost = sum(d["cost"] for d in models.values())
-    return {"totalSessions": total_sessions, "models": models, "totalCost": round(total_cost, 4), "fetchedAt": datetime.utcnow().isoformat() + "Z"}
+
+    return {
+        "totalSessions": total_sessions,
+        "models": models,
+        "totalCost": round(total_cost, 4),
+        "fetchedAt": now_iso(),
+    }
+
 
 def get_timeline_data():
     """Return daily token usage time-series from sessions.json."""
-    from collections import defaultdict
-    import datetime as _dt
-    by_date = defaultdict(lambda: {"inputTokens": 0, "outputTokens": 0, "sessions": 0, "models": defaultdict(lambda: {"inputTokens": 0, "outputTokens": 0, "sessions": 0})})
+    def empty_models():
+        return defaultdict(lambda: {"inputTokens": 0, "outputTokens": 0, "sessions": 0})
+
+    def empty_day():
+        return {"inputTokens": 0, "outputTokens": 0, "sessions": 0, "models": empty_models()}
+
+    by_date = defaultdict(empty_day)
 
     for s in load_sessions():
         ts = s.get("startedAt")
-        if not ts:
+        if not isinstance(ts, (int, float)) or isinstance(ts, bool):
             continue
-        date_str = _dt.datetime.fromtimestamp(ts / 1000, tz=_dt.timezone.utc).strftime("%Y-%m-%d")
-        model = s.get("model", "unknown")
-        inp = s.get("inputTokens") or 0
-        out = s.get("outputTokens") or 0
-        by_date[date_str]["inputTokens"] += inp
-        by_date[date_str]["outputTokens"] += out
-        by_date[date_str]["sessions"] += 1
-        by_date[date_str]["models"][model]["inputTokens"] += inp
-        by_date[date_str]["models"][model]["outputTokens"] += out
-        by_date[date_str]["models"][model]["sessions"] += 1
+        try:
+            date_str = datetime.fromtimestamp(ts / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
+        except (ValueError, OSError, OverflowError):
+            continue
+        model, inp, out = read_record(s)
+        day = by_date[date_str]
+        day["inputTokens"] += inp
+        day["outputTokens"] += out
+        day["sessions"] += 1
+        day["models"][model]["inputTokens"] += inp
+        day["models"][model]["outputTokens"] += out
+        day["models"][model]["sessions"] += 1
 
-    # Build sorted array
+    # Build a sorted array and compute per-day, per-model cost.
     timeline = []
     for date_str in sorted(by_date.keys()):
         entry = {"date": date_str, **by_date[date_str]}
         entry["models"] = dict(entry["models"])
-        timeline.append(entry)
-
-    # Add cost per day per model
-    for entry in timeline:
         day_cost = 0.0
         for model, md in entry["models"].items():
             md["cost"] = calc_cost(md["inputTokens"], md["outputTokens"], model)
             day_cost += md["cost"]
         entry["cost"] = round(day_cost, 4)
+        timeline.append(entry)
 
-    # Fallback mock data
+    # Fallback mock data for the last 7 days.
     if not timeline:
-        from datetime import timedelta
-        today = datetime.utcnow().date()
+        today = datetime.now(timezone.utc).date()
         for i in range(6, -1, -1):
             d = today - timedelta(days=i)
-            timeline.append({"date": d.strftime("%Y-%m-%d"), "inputTokens": 50000 * (i + 1), "outputTokens": 5000 * (i + 1), "sessions": i + 2, "models": {}})
+            timeline.append({
+                "date": d.strftime("%Y-%m-%d"),
+                "inputTokens": 50000 * (i + 1),
+                "outputTokens": 5000 * (i + 1),
+                "sessions": i + 2,
+                "models": {},
+            })
 
-    return {"timeline": timeline, "fetchedAt": datetime.utcnow().isoformat() + "Z"}
+    return {"timeline": timeline, "fetchedAt": now_iso()}
 
 
 class Handler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=DIRECTORY, **kwargs)
 
+    def _send_json(self, payload):
+        body = json.dumps(payload, indent=2).encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
     def do_GET(self):
         if self.path == "/api/timeline":
-            data = get_timeline_data()
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Access-Control-Allow-Origin", "*")
-            self.end_headers()
-            self.wfile.write(json.dumps(data, indent=2).encode())
+            self._send_json(get_timeline_data())
         elif self.path == "/api/usage":
-            data = get_usage_data()
-            self.send_response(200)
-            self.send_header("Content-Type", "application/json")
-            self.send_header("Access-Control-Allow-Origin", "*")
-            self.end_headers()
-            self.wfile.write(json.dumps(data, indent=2).encode())
+            self._send_json(get_usage_data())
         elif self.path in ("/", "/index.html"):
+            body = (Path(DIRECTORY) / "index.html").read_bytes()
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
-            self.send_header("Content-Security-Policy",
+            self.send_header(
+                "Content-Security-Policy",
                 "default-src 'self'; "
                 "script-src cdn.jsdelivr.net; "
                 "style-src fonts.googleapis.com 'unsafe-inline'; "
-                "font-src fonts.gstatic.com"
+                "font-src fonts.gstatic.com",
             )
-            index = Path(DIRECTORY) / "index.html"
-            body = index.read_bytes()
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
             self.wfile.write(body)
@@ -178,8 +229,16 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     def log_message(self, format, *args):
         print(f"[{self.log_date_time_string()}] {format % args}")
 
-if __name__ == "__main__":
+
+def main():
     socketserver.TCPServer.allow_reuse_address = True
     with socketserver.TCPServer(("", PORT), Handler) as httpd:
-        print(f"Serving at http://localhost:{PORT}")
-        httpd.serve_forever()
+        print(f"Serving Token Usage UI at http://localhost:{PORT}")
+        try:
+            httpd.serve_forever()
+        except KeyboardInterrupt:
+            print("\nShutting down.")
+
+
+if __name__ == "__main__":
+    main()
