@@ -18,7 +18,10 @@ from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-PORT = int(os.environ.get("PORT", "8765"))
+try:
+    PORT = int(os.environ.get("PORT", "8765"))
+except ValueError:
+    PORT = 8765
 DIRECTORY = os.path.dirname(os.path.abspath(__file__))
 OPENCLAW_DIR = Path(os.environ.get("OPENCLAW_DIR", Path.home() / ".openclaw"))
 
@@ -80,6 +83,22 @@ def load_sessions():
     return []
 
 
+def read_record(s):
+    """Extract (model, input_tokens, output_tokens) from a raw session record.
+
+    Coerces missing or malformed fields to safe defaults so a single bad
+    record in sessions.json can't crash aggregation.
+    """
+    model = s.get("model")
+    if not isinstance(model, str):
+        model = "unknown"
+    inp = s.get("inputTokens")
+    out = s.get("outputTokens")
+    inp = inp if isinstance(inp, (int, float)) and not isinstance(inp, bool) else 0
+    out = out if isinstance(out, (int, float)) and not isinstance(out, bool) else 0
+    return model, inp, out
+
+
 def get_usage_data():
     """Aggregate per-model token usage and cost across all sessions."""
     sessions = load_sessions()
@@ -87,9 +106,7 @@ def get_usage_data():
     total_sessions = len(sessions)
 
     for s in sessions:
-        model = s.get("model", "unknown")
-        inp = s.get("inputTokens", 0) or 0
-        out = s.get("outputTokens", 0) or 0
+        model, inp, out = read_record(s)
         entry = models.setdefault(
             model, {"inputTokens": 0, "outputTokens": 0, "sessions": 0}
         )
@@ -130,12 +147,13 @@ def get_timeline_data():
 
     for s in load_sessions():
         ts = s.get("startedAt")
-        if not ts:
+        if not isinstance(ts, (int, float)) or isinstance(ts, bool):
             continue
-        date_str = datetime.fromtimestamp(ts / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
-        model = s.get("model", "unknown")
-        inp = s.get("inputTokens") or 0
-        out = s.get("outputTokens") or 0
+        try:
+            date_str = datetime.fromtimestamp(ts / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
+        except (ValueError, OSError, OverflowError):
+            continue
+        model, inp, out = read_record(s)
         day = by_date[date_str]
         day["inputTokens"] += inp
         day["outputTokens"] += out

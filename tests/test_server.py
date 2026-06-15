@@ -97,5 +97,48 @@ class RealDataTests(unittest.TestCase):
         self.assertIn("claude-sonnet-4-6", day["models"])
 
 
+class MalformedDataTests(unittest.TestCase):
+    """A single bad record in sessions.json must not crash aggregation."""
+
+    def setUp(self):
+        self._orig = server.OPENCLAW_DIR
+        self._tmp = tempfile.TemporaryDirectory()
+        root = Path(self._tmp.name)
+        sessions_dir = root / "agents" / "main" / "sessions"
+        sessions_dir.mkdir(parents=True)
+        sessions = [
+            # malformed: wrong types throughout, plus a bad timestamp
+            {"model": None, "inputTokens": "abc", "outputTokens": None, "startedAt": "nope"},
+            # valid record
+            {"model": "claude-sonnet-4-6", "inputTokens": 1000, "outputTokens": 500,
+             "startedAt": 1_700_000_000_000},
+            # not a dict at all — filtered out by load_sessions
+            "not-a-dict",
+        ]
+        (sessions_dir / "sessions.json").write_text(json.dumps(sessions))
+        server.OPENCLAW_DIR = root
+
+    def tearDown(self):
+        server.OPENCLAW_DIR = self._orig
+        self._tmp.cleanup()
+
+    def test_usage_coerces_bad_fields(self):
+        data = server.get_usage_data()  # must not raise
+        self.assertEqual(data["totalSessions"], 2)
+        self.assertEqual(data["models"]["unknown"]["inputTokens"], 0)
+        self.assertEqual(data["models"]["claude-sonnet-4-6"]["inputTokens"], 1000)
+
+    def test_timeline_skips_bad_timestamps(self):
+        data = server.get_timeline_data()  # must not raise
+        # only the record with a valid numeric startedAt is bucketed
+        self.assertEqual(len(data["timeline"]), 1)
+        self.assertEqual(data["timeline"][0]["sessions"], 1)
+
+
+class PortParsingTests(unittest.TestCase):
+    def test_default_port_is_int(self):
+        self.assertIsInstance(server.PORT, int)
+
+
 if __name__ == "__main__":
     unittest.main()
